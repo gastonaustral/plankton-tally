@@ -443,7 +443,7 @@ function render() {
           '<button class="btn-reset-count" onclick="resetOne(' + idx + ')">Reset</button>' +
         '</div>' +
         '<div class="card-photos">' +
-          '<div class="card-photos-label"><span>📷 Photos (' + (counter.photos||[]).length + '/3)</span></div>' +
+          '<div class="card-photos-label"><span>📷 Photos (' + (counter.photos||[]).length + '/5)</span></div>' +
           '<div class="photo-row" id="photos-' + counter.id + '">' +
             buildPhotoRow(idx) +
           '</div>' +
@@ -532,7 +532,7 @@ function buildPhotoRow(idx) {
       '<button class="photo-del" onclick="deletePhoto(' + idx + ',' + pi + ')">✕</button>' +
     '</div>';
   }
-  if (photos.length < 3) {
+  if (photos.length < 5) {
     html += '<label class="photo-add" title="Add photo">' +
       '＋' +
       '<input type="file" accept="image/*" capture="environment" style="display:none" onchange="addPhoto(' + idx + ',this)">' +
@@ -545,7 +545,7 @@ function addPhoto(idx, input) {
   if (!input.files || !input.files[0]) return;
   var counter = counters[idx];
   if (!counter.photos) counter.photos = [];
-  if (counter.photos.length >= 3) { showToast('Max 3 photos per counter'); return; }
+  if (counter.photos.length >= 5) { showToast('Max 5 photos per counter'); return; }
   var reader = new FileReader();
   reader.onload = function(e) {
     // Resize to max 400px to keep localStorage size manageable
@@ -580,7 +580,7 @@ function refreshPhotoRow(idx) {
   if (row) {
     row.innerHTML = buildPhotoRow(idx);
     var label = row.closest('.card-photos').querySelector('.card-photos-label span');
-    if (label) label.textContent = '📷 Photos (' + (counter.photos||[]).length + '/3)';
+    if (label) label.textContent = '📷 Photos (' + (counter.photos||[]).length + '/5)';
   }
 }
 
