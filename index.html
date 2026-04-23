@@ -780,32 +780,6 @@ function doExcelExport() {
     ['Step'].concat(counters.map(function(c){return c.step;})),
   ];
 
-  // Build photo data
-  var tag = dateTag();
-  var exportTime = now.toLocaleString('en-US');
-  var maxPhotos = 0;
-  var hasPhotos = false;
-  for (var pi = 0; pi < counters.length; pi++) {
-    var plen = (counters[pi].photos || []).length;
-    if (plen > maxPhotos) maxPhotos = plen;
-    if (plen > 0) hasPhotos = true;
-  }
-
-  // One row per photo slot in Summary sheet
-  for (var photoSlot = 0; photoSlot < maxPhotos; photoSlot++) {
-    var photoRow = ['Photo ' + (photoSlot + 1)];
-    for (var ci3 = 0; ci3 < counters.length; ci3++) {
-      var slotPhoto = (counters[ci3].photos || [])[photoSlot];
-      if (slotPhoto) {
-        var fname = tag + '_' + counters[ci3].name.replace(/[^a-zA-Z0-9]/g,'_') + '_photo' + (photoSlot+1) + '.jpg';
-        photoRow.push(fname);
-      } else {
-        photoRow.push('—');
-      }
-    }
-    summaryData.push(photoRow);
-  }
-
   summaryData.push([]);
   summaryData.push([]);
   summaryData.push(['Total (count)', total]);
@@ -814,23 +788,8 @@ function doExcelExport() {
   summaryData.push(['Minimum (count)', Math.min.apply(null, counters.map(function(c){return c.value;}))]);
 
   var ws1 = XLSX.utils.aoa_to_sheet(summaryData);
-  ws1['!cols'] = [{wch:16}].concat(counters.map(function(){return {wch:38};}));
+  ws1['!cols'] = [{wch:16}].concat(counters.map(function(){return {wch:22};}));
   XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
-
-  // Photos sheet — one row per photo with exact filename matching downloaded jpg
-  if (hasPhotos) {
-    var photoSheetData = [['Counter', 'Photo #', 'Filename (save photos in same folder)', 'Exported']];
-    for (var ci4 = 0; ci4 < counters.length; ci4++) {
-      var cPhotos = counters[ci4].photos || [];
-      for (var phi = 0; phi < cPhotos.length; phi++) {
-        var photoFname = tag + '_' + counters[ci4].name.replace(/[^a-zA-Z0-9]/g,'_') + '_photo' + (phi+1) + '.jpg';
-        photoSheetData.push([counters[ci4].name, phi + 1, photoFname, exportTime]);
-      }
-    }
-    var wsP = XLSX.utils.aoa_to_sheet(photoSheetData);
-    wsP['!cols'] = [{wch:24},{wch:10},{wch:46},{wch:24}];
-    XLSX.utils.book_append_sheet(wb, wsP, 'Photos');
-  }
 
   var maxLen = Math.max.apply(null, counters.map(function(c){return (c.history||[]).length;}).concat([0]));
   if (maxLen > 0) {
