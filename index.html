@@ -256,6 +256,7 @@ input[type="number"]::-webkit-inner-spin-button{opacity:0.4;}
   </div>
   <div class="toolbar-right">
     <button class="btn btn-export" onclick="exportExcel()">↓ Excel</button>
+    <button class="btn btn-export" onclick="exportReport()" style="color:#d47fff;border-color:rgba(212,127,255,0.3);">↓ Report</button>
     <button class="btn btn-ghost" id="bellBtn" onclick="toggleBell()">🔔 Sound</button>
     <button class="btn btn-danger" onclick="clearAll()">✕ Clear</button>
   </div>
@@ -875,7 +876,86 @@ function doExcelExport() {
   }
 }
 
-// ─── iOS DOWNLOAD ──────────────────────────────────────────────────────────
+// ─── EXPORT HTML REPORT ────────────────────────────────────────────────────
+function exportReport() {
+  if (!counters.length) { showToast('No counters to export'); return; }
+  var now = new Date().toLocaleString('en-US');
+  var total = counters.reduce(function(a,c){return a+c.value;},0);
+
+  var rows = '';
+  // Header row
+  rows += '<tr><th></th>';
+  for (var i = 0; i < counters.length; i++) {
+    rows += '<th style="background:' + counters[i].color + ';color:#0e0e0e;padding:8px 12px;border-radius:4px;">' + counters[i].name + '</th>';
+  }
+  rows += '</tr>';
+
+  // Data rows
+  var dataRows = [
+    { label: 'Count',     fn: function(c){ return c.value; } },
+    { label: 'F',         fn: function(c){ return c.f||1; } },
+    { label: 'Count × F', fn: function(c){ return (c.value*(c.f||1)).toFixed(2); } },
+    { label: 'Step',      fn: function(c){ return c.step; } },
+  ];
+  for (var ri = 0; ri < dataRows.length; ri++) {
+    rows += '<tr><td class="rl">' + dataRows[ri].label + '</td>';
+    for (var ci = 0; ci < counters.length; ci++) {
+      rows += '<td>' + dataRows[ri].fn(counters[ci]) + '</td>';
+    }
+    rows += '</tr>';
+  }
+
+  // Photo rows — up to 3 per counter
+  var maxPhotos = Math.max.apply(null, counters.map(function(c){return (c.photos||[]).length;}).concat([0]));
+  for (var ps = 0; ps < maxPhotos; ps++) {
+    rows += '<tr><td class="rl">Photo ' + (ps+1) + '</td>';
+    for (var ci2 = 0; ci2 < counters.length; ci2++) {
+      var photo = (counters[ci2].photos||[])[ps];
+      if (photo) {
+        rows += '<td><img src="' + photo + '" style="width:120px;height:120px;object-fit:cover;border-radius:6px;border:1px solid #333;"></td>';
+      } else {
+        rows += '<td style="color:#555;">—</td>';
+      }
+    }
+    rows += '</tr>';
+  }
+
+  var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Plankton Tally — Report</title>' +
+    '<style>' +
+    'body{font-family:system-ui,sans-serif;background:#0e0e0e;color:#f0f0f0;padding:24px;margin:0;}' +
+    'h1{font-size:28px;letter-spacing:4px;color:#e8ff47;margin:0;}' +
+    '.sub{color:#6a6a6a;font-size:13px;margin-top:4px;font-family:monospace;}' +
+    '.meta{margin:20px 0 8px;color:#6a6a6a;font-size:13px;font-family:monospace;line-height:1.8;}' +
+    'table{border-collapse:collapse;width:100%;margin-top:16px;}' +
+    'th,td{padding:10px 14px;text-align:center;border-bottom:1px solid #2e2e2e;font-size:14px;}' +
+    'td.rl{text-align:left;font-family:monospace;font-size:12px;color:#6a6a6a;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}' +
+    'tr:last-child td{border-bottom:none;}' +
+    '.stats{margin-top:24px;display:flex;gap:24px;flex-wrap:wrap;}' +
+    '.stat{background:#1a1a1a;border:1px solid #2e2e2e;border-radius:8px;padding:12px 18px;}' +
+    '.stat .lbl{font-size:11px;color:#6a6a6a;text-transform:uppercase;letter-spacing:1px;font-family:monospace;}' +
+    '.stat .val{font-size:24px;color:#e8ff47;font-weight:700;margin-top:2px;}' +
+    '</style></head><body>' +
+    '<h1>PLANKTON TALLY</h1>' +
+    '<div class="sub">by G. E. Aguirre</div>' +
+    '<div class="meta">' +
+    '<b>Group:</b> ' + getGroupName() + '<br>' +
+    '<b>Location:</b> ' + getLocation() + '<br>' +
+    '<b>Exported:</b> ' + now +
+    '</div>' +
+    '<table>' + rows + '</table>' +
+    '<div class="stats">' +
+    '<div class="stat"><div class="lbl">Total (count)</div><div class="val">' + total + '</div></div>' +
+    '<div class="stat"><div class="lbl">Average</div><div class="val">' + (total/counters.length).toFixed(1) + '</div></div>' +
+    '<div class="stat"><div class="lbl">Maximum</div><div class="val">' + Math.max.apply(null,counters.map(function(c){return c.value;})) + '</div></div>' +
+    '<div class="stat"><div class="lbl">Minimum</div><div class="val">' + Math.min.apply(null,counters.map(function(c){return c.value;})) + '</div></div>' +
+    '</div>' +
+    '</body></html>';
+
+  var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  iosDownload(blob, 'plankton_tally_report_' + dateTag() + '.html');
+}
 function iosDownload(blob, filename) {
   // Try standard download first (works on desktop and some iOS versions)
   try {
