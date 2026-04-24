@@ -500,6 +500,11 @@ function render() {
           '<button class="f-preset" onclick="setF(' + idx + ',4)">4</button>' +
           '<button class="f-preset" onclick="setF(' + idx + ',8)">8</button>' +
           '<button class="f-preset" onclick="setF(' + idx + ',16)">16</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',32)">32</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',64)">64</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',128)">128</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',256)">256</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',512)">512</button>' +
         '</div>' +
         '<div class="card-actions">' +
           '<button class="btn-count btn-decrement" onclick="adjust(' + idx + ',-1)">−</button>' +
@@ -508,7 +513,7 @@ function render() {
         '</div>' +
         '<div class="card-notes">' +
           '<label class="step-label">Notes</label>' +
-          '<textarea class="notes-input" placeholder="Observations..." onchange="setNotes(' + idx + ',this.value)">' + (counter.notes||'').replace(/</g,'&lt;') + '</textarea>' +
+          '<textarea class="notes-input" placeholder="Observations..." onchange="setNotes(' + idx + ',this.value)">' + (counter.notes||'') + '</textarea>' +
         '</div>' +
         '<div class="card-photos">' +
           '<div class="card-photos-label"><span>📷 Photos (' + (counter.photos||[]).length + '/5)</span></div>' +
