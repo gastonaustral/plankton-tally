@@ -917,6 +917,8 @@ function doExcelExport() {
   iosDownload(xlsBlob, 'tally_'+dateTag()+'.xlsx');
 
   // Download individual photos
+  var tag = dateTag();
+  var hasPhotos = counters.some(function(c){ return (c.photos||[]).length > 0; });
   if (hasPhotos) {
     setTimeout(function() {
       for (var ci4 = 0; ci4 < counters.length; ci4++) {
@@ -1124,3 +1126,106 @@ function exportPDF() {
 
 // ─── iOS DOWNLOAD ──────────────────────────────────────────────────────────
 function iosDownload(blob, filename) {
+  // Try standard download first (works on desktop and some iOS versions)
+  try {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    if (isIOS()) {
+      showToast('Tap Share (□↑) → Save to Files');
+    } else {
+      showToast('✓ ' + filename + ' exported');
+    }
+  } catch(e) {
+    showToast('Export failed — try again');
+  }
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', function() {
+  if (isIOS() && !isStandalone()) {
+    document.getElementById('install-banner').style.display = 'block';
+  }
+});
+
+// Restore metadata
+(function() {
+  var meta = {};
+  try { meta = JSON.parse(localStorage.getItem('tally_meta') || '{}'); } catch(e) {}
+  if (meta.cruise) document.getElementById('cruiseNr').value = meta.cruise;
+  if (meta.sample) document.getElementById('sampleId').value = meta.sample;
+  if (meta.date)   document.getElementById('sampleDate').value = meta.date;
+  if (meta.depth)  document.getElementById('depthStrata').value = meta.depth;
+  if (meta.gear)   document.getElementById('gearField').value = meta.gear;
+
+  // Auto-save metadata on input
+  ['cruiseNr','sampleId','sampleDate','depthStrata','gearField'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', function() {
+      localStorage.setItem('tally_meta', JSON.stringify(getMetadata()));
+    });
+  });
+})();
+
+// Restore location
+var savedLoc = localStorage.getItem('tally_location');
+if (savedLoc) document.getElementById('locationField').value = savedLoc;
+document.getElementById('locationField').addEventListener('input', function() {
+  localStorage.setItem('tally_location', this.value);
+});
+
+function getGPS() {
+  var btn = document.getElementById('gpsBtn');
+  btn.textContent = '…';
+  btn.style.color = 'var(--accent)';
+  if (!navigator.geolocation) {
+    showToast('GPS not available');
+    btn.textContent = '⊕';
+    btn.style.color = '';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      var lat = pos.coords.latitude.toFixed(5);
+      var lon = pos.coords.longitude.toFixed(5);
+      var val = lat + ', ' + lon;
+      document.getElementById('locationField').value = val;
+      localStorage.setItem('tally_location', val);
+      btn.textContent = '⊕';
+      btn.style.color = '';
+      showToast('✓ GPS location captured');
+    },
+    function() {
+      showToast('GPS unavailable — enter manually');
+      btn.textContent = '⊕';
+      btn.style.color = '';
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function getLocation() {
+  return document.getElementById('locationField').value.trim() || '—';
+}
+document.getElementById('newCounterName').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addCounter();
+});
+
+// Set initial button states
+(function() {
+  var bellBtn = document.getElementById('bellBtn');
+  if (!bellEnabled) {
+    bellBtn.textContent = '🔕 Sound';
+    bellBtn.className = 'btn btn-danger';
+  }
+})();
+
+render();
+</script>
+</body>
+</html>
