@@ -90,22 +90,23 @@ input[type="text"]::placeholder{color:var(--muted);}
 .btn-r2{background:rgba(96,180,255,0.1);color:#60b4ff;border-color:rgba(96,180,255,0.3);}
 .btn-r2:active{background:rgba(96,180,255,0.2);}
 
-.group-bar{
-  display:flex;align-items:center;gap:12px;padding:10px 20px;
-  border-bottom:1px solid var(--border);background:rgba(232,255,71,0.04);
+.metadata-bar{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 16px;
+  padding:12px 20px;border-bottom:1px solid var(--border);background:rgba(232,255,71,0.04);
 }
-.group-label{
-  font-family:'DM Mono',monospace;font-size:18px;color:var(--accent);
-  text-transform:uppercase;letter-spacing:2px;white-space:nowrap;
+.meta-field{display:flex;flex-direction:column;gap:4px;}
+.meta-label{
+  font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);
+  text-transform:uppercase;letter-spacing:1.5px;
 }
-#groupName{
-  flex:1;max-width:400px;background:transparent;border:none;
-  border-bottom:2px solid var(--border);border-radius:0;
-  padding:4px 4px;font-size:20px;font-weight:500;font-family:'DM Sans',sans-serif;
-  color:var(--text);-webkit-appearance:none;
+.metadata-bar input{
+  background:transparent;border:none;border-bottom:2px solid var(--border);
+  border-radius:0;padding:5px 4px;font-size:18px;font-weight:500;font-family:'DM Sans',sans-serif;
+  color:var(--text);-webkit-appearance:none;outline:none;width:100%;
 }
-#groupName:focus{border-bottom-color:var(--accent);outline:none;}
-#groupName::placeholder{color:var(--muted);}
+.metadata-bar input:focus{border-bottom-color:var(--accent);outline:none;}
+.metadata-bar input::placeholder{color:var(--muted);}
+.metadata-bar input[type="date"]{font-family:'DM Mono',monospace;}
 
 main{flex:1;padding:20px;}
 .counters-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;}
@@ -165,6 +166,34 @@ input[type="number"]::-webkit-inner-spin-button{opacity:0.4;}
   font-size:18px;cursor:pointer;text-transform:uppercase;letter-spacing:0.5px;
 }
 .btn-reset-count:active{color:var(--text);}
+
+.card-reorder{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  cursor:pointer;font-size:14px;width:24px;height:24px;border-radius:4px;
+  padding:0;line-height:1;transition:all 0.15s;
+}
+.card-reorder:active{color:var(--accent);border-color:var(--accent);}
+
+.f-presets{
+  display:flex;align-items:center;gap:4px;padding:0 14px 10px;flex-wrap:wrap;
+}
+.f-preset{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  font-family:'DM Mono',monospace;font-size:13px;padding:4px 9px;
+  border-radius:4px;cursor:pointer;transition:all 0.1s;
+}
+.f-preset:active{background:var(--accent);color:#0e0e0e;border-color:var(--accent);}
+
+.card-notes{padding:8px 14px 10px;border-top:1px solid var(--border);}
+.card-notes label{display:block;margin-bottom:4px;}
+.notes-input{
+  width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:14px;padding:6px 8px;
+  border-radius:6px;outline:none;resize:vertical;min-height:36px;max-height:120px;
+  -webkit-appearance:none;
+}
+.notes-input:focus{border-color:var(--accent);}
+.notes-input::placeholder{color:var(--muted);}
 
 .card-photos{padding:8px 14px 10px;border-top:1px solid var(--border);}
 .card-photos-label{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;}
@@ -243,9 +272,27 @@ input[type="number"]::-webkit-inner-spin-button{opacity:0.4;}
   📲 <strong>Add to Home Screen</strong> — tap for instructions
 </div>
 
-<div class="group-bar">
-  <span class="group-label">Group</span>
-  <input type="text" id="groupName" placeholder="Group name..." style="flex:1;max-width:400px">
+<div class="metadata-bar">
+  <div class="meta-field">
+    <label class="meta-label">Cruise Nr</label>
+    <input type="text" id="cruiseNr" placeholder="—" autocomplete="off">
+  </div>
+  <div class="meta-field">
+    <label class="meta-label">Sample ID</label>
+    <input type="text" id="sampleId" placeholder="—" autocomplete="off">
+  </div>
+  <div class="meta-field">
+    <label class="meta-label">Sample Date</label>
+    <input type="date" id="sampleDate">
+  </div>
+  <div class="meta-field">
+    <label class="meta-label">Depth strata</label>
+    <input type="text" id="depthStrata" placeholder="—" autocomplete="off">
+  </div>
+  <div class="meta-field">
+    <label class="meta-label">Gear</label>
+    <input type="text" id="gearField" placeholder="—" autocomplete="off">
+  </div>
 </div>
 
 <div class="toolbar">
@@ -359,11 +406,17 @@ var bellEnabled = JSON.parse(localStorage.getItem('tally_bell') !== null ? local
 
 function save() {
   localStorage.setItem('tally_counters', JSON.stringify(counters));
-  localStorage.setItem('tally_group', document.getElementById('groupName').value);
+  localStorage.setItem('tally_meta', JSON.stringify(getMetadata()));
 }
 
-function getGroupName() {
-  return document.getElementById('groupName').value.trim() || 'Untitled Group';
+function getMetadata() {
+  return {
+    cruise:  document.getElementById('cruiseNr').value || '',
+    sample:  document.getElementById('sampleId').value || '',
+    date:    document.getElementById('sampleDate').value || '',
+    depth:   document.getElementById('depthStrata').value || '',
+    gear:    document.getElementById('gearField').value || ''
+  };
 }
 
 // ─── CLOCK ─────────────────────────────────────────────────────────────────
@@ -418,8 +471,10 @@ function render() {
 
       card.innerHTML =
         '<div class="card-header">' +
+          '<button class="card-reorder" onclick="moveCounter(' + idx + ',-1)" title="Move left">←</button>' +
           '<input class="card-name" value="' + counter.name.replace(/"/g,'&quot;') + '" ' +
             'onchange="rename(' + idx + ',this.value)" title="Tap to rename">' +
+          '<button class="card-reorder" onclick="moveCounter(' + idx + ',1)" title="Move right">→</button>' +
           '<button class="card-delete" onclick="deleteCounter(' + idx + ')">✕</button>' +
         '</div>' +
         '<div class="color-picker">' + swatchesHtml + '</div>' +
@@ -438,10 +493,22 @@ function render() {
           '<input type="number" class="step-input" value="' + (counter.f || 1) + '" min="0" step="any" ' +
             'onchange="setF(' + idx + ',this.value)">' +
         '</div>' +
+        '<div class="f-presets">' +
+          '<span class="step-label">Quick F:</span>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',1)">1</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',2)">2</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',4)">4</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',8)">8</button>' +
+          '<button class="f-preset" onclick="setF(' + idx + ',16)">16</button>' +
+        '</div>' +
         '<div class="card-actions">' +
           '<button class="btn-count btn-decrement" onclick="adjust(' + idx + ',-1)">−</button>' +
           '<button class="btn-count btn-increment" onclick="adjust(' + idx + ',1)">+</button>' +
           '<button class="btn-reset-count" onclick="resetOne(' + idx + ')">Reset</button>' +
+        '</div>' +
+        '<div class="card-notes">' +
+          '<label class="step-label">Notes</label>' +
+          '<textarea class="notes-input" placeholder="Observations..." onchange="setNotes(' + idx + ',this.value)">' + (counter.notes||'').replace(/</g,'&lt;') + '</textarea>' +
         '</div>' +
         '<div class="card-photos">' +
           '<div class="card-photos-label"><span>📷 Photos (' + (counter.photos||[]).length + '/5)</span></div>' +
@@ -462,7 +529,7 @@ function addCounter() {
   var inp = document.getElementById('newCounterName');
   var name = inp.value.trim() || ('Counter ' + (counters.length + 1));
   counters.push({
-    id: Date.now(), name: name, value: 0, step: 1, f: 1,
+    id: Date.now(), name: name, value: 0, step: 1, f: 1, notes: '',
     color: COLORS[counters.length % COLORS.length],
     history: [], photos: [], createdAt: new Date().toISOString()
   });
@@ -507,8 +574,17 @@ function adjust(idx, dir) {
 
 function rename(idx, val) { counters[idx].name = val || ('Counter ' + (idx+1)); save(); }
 function setStep(idx, val) { counters[idx].step = Math.max(1, parseInt(val) || 1); save(); render(); }
-function setF(idx, val) { counters[idx].f = Math.max(0, parseFloat(val) || 1); save(); updateExt(idx); }
+function setF(idx, val) { counters[idx].f = Math.max(0, parseFloat(val) || 1); save(); render(); }
 function setColor(idx, col) { counters[idx].color = col; save(); render(); }
+function setNotes(idx, val) { counters[idx].notes = val || ''; save(); }
+function moveCounter(idx, dir) {
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= counters.length) return;
+  var tmp = counters[idx];
+  counters[idx] = counters[newIdx];
+  counters[newIdx] = tmp;
+  save(); render();
+}
 function updateExt(idx) {
   var counter = counters[idx];
   var el = document.getElementById('ext-' + counter.id);
@@ -748,8 +824,13 @@ function exportCSV() {
   var extrap = counters.map(function(c){return (c.value*(c.f||1)).toFixed(2);}).join(',');
   var steps  = counters.map(function(c){return c.step;}).join(',');
   var total  = counters.reduce(function(a,c){return a+c.value;},0);
+  var m = getMetadata();
   var csv = 'PLANKTON TALLY\n';
-  csv += 'Group: ' + getGroupName() + '\n';
+  csv += 'Cruise Nr: ' + m.cruise + '\n';
+  csv += 'Sample ID: ' + m.sample + '\n';
+  csv += 'Sample Date: ' + m.date + '\n';
+  csv += 'Depth strata: ' + m.depth + '\n';
+  csv += 'Gear: ' + m.gear + '\n';
   csv += 'Location: ' + getLocation() + '\n';
   csv += 'Exported: ' + now + '\n\n';
   csv += ',' + names + '\n';
@@ -778,9 +859,14 @@ function doExcelExport() {
   var wb = XLSX.utils.book_new();
   var now = new Date();
   var total = counters.reduce(function(a,c){return a+c.value;},0);
+  var m = getMetadata();
   var summaryData = [
     ['PLANKTON TALLY'],
-    ['Group: ' + getGroupName()],
+    ['Cruise Nr: ' + m.cruise],
+    ['Sample ID: ' + m.sample],
+    ['Sample Date: ' + m.date],
+    ['Depth strata: ' + m.depth],
+    ['Gear: ' + m.gear],
     ['Location: ' + getLocation()],
     ['Exported: ' + now.toLocaleString('en-US')], [],
     [''].concat(counters.map(function(c){return c.name;})),
@@ -788,6 +874,7 @@ function doExcelExport() {
     ['F'].concat(counters.map(function(c){return c.f||1;})),
     ['Count x F'].concat(counters.map(function(c){return +(c.value*(c.f||1)).toFixed(4);})),
     ['Step'].concat(counters.map(function(c){return c.step;})),
+    ['Notes'].concat(counters.map(function(c){return c.notes||'';})),
   ];
 
   summaryData.push([]);
@@ -865,6 +952,7 @@ function exportReport() {
     { label: 'F',         fn: function(c){ return c.f||1; } },
     { label: 'Count × F', fn: function(c){ return (c.value*(c.f||1)).toFixed(2); } },
     { label: 'Step',      fn: function(c){ return c.step; } },
+    { label: 'Notes',     fn: function(c){ return (c.notes||'').replace(/</g,'&lt;'); } },
   ];
   for (var ri = 0; ri < dataRows.length; ri++) {
     rows += '<tr><td class="rl">' + dataRows[ri].label + '</td>';
@@ -909,102 +997,14 @@ function exportReport() {
     '<h1>PLANKTON TALLY</h1>' +
     '<div class="sub">by G. E. Aguirre</div>' +
     '<div class="meta">' +
-    '<b>Group:</b> ' + getGroupName() + '<br>' +
+    '<b>Cruise Nr:</b> ' + (getMetadata().cruise||'—') + '<br>' +
+    '<b>Sample ID:</b> ' + (getMetadata().sample||'—') + '<br>' +
+    '<b>Sample Date:</b> ' + (getMetadata().date||'—') + '<br>' +
+    '<b>Depth strata:</b> ' + (getMetadata().depth||'—') + '<br>' +
+    '<b>Gear:</b> ' + (getMetadata().gear||'—') + '<br>' +
     '<b>Location:</b> ' + getLocation() + '<br>' +
     '<b>Exported:</b> ' + now +
     '</div>' +
     '<table>' + rows + '</table>' +
     '<div class="stats">' +
     '<div class="stat"><div class="lbl">Total (count)</div><div class="val">' + total + '</div></div>' +
-    '<div class="stat"><div class="lbl">Average</div><div class="val">' + (total/counters.length).toFixed(1) + '</div></div>' +
-    '<div class="stat"><div class="lbl">Maximum</div><div class="val">' + Math.max.apply(null,counters.map(function(c){return c.value;})) + '</div></div>' +
-    '<div class="stat"><div class="lbl">Minimum</div><div class="val">' + Math.min.apply(null,counters.map(function(c){return c.value;})) + '</div></div>' +
-    '</div>' +
-    '</body></html>';
-
-  var blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  iosDownload(blob, 'plankton_tally_report_' + dateTag() + '.html');
-}
-
-// ─── EXPORT PDF ────────────────────────────────────────────────────────────
-function exportPDF() {
-  if (!counters.length) { showToast('No counters to export'); return; }
-  var now = new Date().toLocaleString('en-US');
-  var total = counters.reduce(function(a,c){return a+c.value;},0);
-
-  var rows = '';
-  rows += '<tr><th></th>';
-  for (var i = 0; i < counters.length; i++) {
-    rows += '<th style="background:' + counters[i].color + ';color:#0e0e0e;padding:8px 12px;border-radius:4px;">' + counters[i].name + '</th>';
-  }
-  rows += '</tr>';
-
-  var dataRows = [
-    { label: 'Count',     fn: function(c){ return c.value; } },
-    { label: 'F',         fn: function(c){ return c.f||1; } },
-    { label: 'Count × F', fn: function(c){ return (c.value*(c.f||1)).toFixed(2); } },
-    { label: 'Step',      fn: function(c){ return c.step; } },
-  ];
-  for (var ri = 0; ri < dataRows.length; ri++) {
-    rows += '<tr><td class="rl">' + dataRows[ri].label + '</td>';
-    for (var ci = 0; ci < counters.length; ci++) {
-      rows += '<td>' + dataRows[ri].fn(counters[ci]) + '</td>';
-    }
-    rows += '</tr>';
-  }
-
-  var maxPhotos = Math.max.apply(null, counters.map(function(c){return (c.photos||[]).length;}).concat([0]));
-  for (var ps = 0; ps < maxPhotos; ps++) {
-    rows += '<tr><td class="rl">Photo ' + (ps+1) + '</td>';
-    for (var ci2 = 0; ci2 < counters.length; ci2++) {
-      var photo = (counters[ci2].photos||[])[ps];
-      if (photo) {
-        rows += '<td><img src="' + photo + '" style="width:110px;height:110px;object-fit:cover;border-radius:6px;border:1px solid #ccc;"></td>';
-      } else {
-        rows += '<td style="color:#aaa;">—</td>';
-      }
-    }
-    rows += '</tr>';
-  }
-
-  var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
-    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>Plankton Tally — PDF Report</title>' +
-    '<style>' +
-    '@media print{#save-bar{display:none!important;}body{background:white!important;color:black!important;}.stat{border:1px solid #ccc!important;}th,td{border-bottom:1px solid #ddd!important;}td.rl{color:#666!important;}}' +
-    'body{font-family:system-ui,sans-serif;background:#fff;color:#111;padding:0;margin:0;}' +
-    '#save-bar{position:sticky;top:0;z-index:100;background:#1a1a2e;color:white;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}' +
-    '#save-bar .instructions{font-size:13px;opacity:0.85;line-height:1.6;}' +
-    '#save-bar .instructions b{color:#e8ff47;}' +
-    '#pdf-btn{background:#e8ff47;color:#0e0e0e;border:none;padding:10px 22px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;}' +
-    '#pdf-btn:active{background:#d4ea30;}' +
-    '.content{padding:28px 32px;}' +
-    'h1{font-size:26px;letter-spacing:3px;color:#111;margin:0;}' +
-    '.sub{color:#888;font-size:12px;margin-top:3px;}' +
-    '.meta{margin:16px 0 8px;color:#555;font-size:13px;font-family:monospace;line-height:1.9;}' +
-    'table{border-collapse:collapse;width:100%;margin-top:16px;}' +
-    'th,td{padding:9px 14px;text-align:center;border-bottom:1px solid #e0e0e0;font-size:13px;}' +
-    'td.rl{text-align:left;font-family:monospace;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}' +
-    'tr:last-child td{border-bottom:none;}' +
-    '.stats{margin-top:24px;display:flex;gap:16px;flex-wrap:wrap;}' +
-    '.stat{background:#f5f5f5;border:1px solid #e0e0e0;border-radius:8px;padding:10px 16px;}' +
-    '.stat .lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;font-family:monospace;}' +
-    '.stat .val{font-size:22px;color:#111;font-weight:700;margin-top:2px;}' +
-    '</style></head><body>' +
-    '<div id="save-bar">' +
-      '<div class="instructions">' +
-        '<b>Save as PDF:</b><br>' +
-        '📱 iPad: tap <b>Share (□↑)</b> → <b>Print</b> → pinch out on preview to get PDF<br>' +
-        '💻 Mac/PC: press <b>Cmd+P</b> / <b>Ctrl+P</b> → Destination: <b>Save as PDF</b>' +
-      '</div>' +
-      '<button id="pdf-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>' +
-    '</div>' +
-    '<div class="content">' +
-    '<h1>PLANKTON TALLY</h1>' +
-    '<div class="sub">by G. E. Aguirre</div>' +
-    '<div class="meta">' +
-    '<b>Group:</b> ' + getGroupName() + '<br>' +
-    '<b>Location:</b> ' + getLocation() + '<br>' +
-    '<b>Exported:</b> ' + now +
-    '</div>' +
-    '<table>' + rows + '</table>' +
