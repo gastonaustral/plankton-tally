@@ -371,7 +371,7 @@ input[type="number"]::-webkit-inner-spin-button{opacity:0.4;}
 
 // ─── SERVICE WORKER ────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  var sw = "const C='tally-v3';self.addEventListener('install',e=>{self.skipWaiting();});self.addEventListener('activate',e=>{self.clients.claim();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>new Response('',{status:503}))));});";
+  var sw = "const C='tally-v3';self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(cache=>cache.addAll(['.'])));});self.addEventListener('activate',e=>{self.clients.claim();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>new Response('',{status:503}))));});";
   var swBlob = new Blob([sw], {type:'application/javascript'});
   navigator.serviceWorker.register(URL.createObjectURL(swBlob), {scope:'./'}).catch(function(){});
 }
@@ -397,16 +397,28 @@ function loadScript(src, cb) {
   var s = document.createElement('script');
   s.src = src; s.onload = cb; document.head.appendChild(s);
 }
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 var COLORS = ['#ffffff','#22c55e','#3b82f6','#facc15','#ef4444',
               '#e8ff47','#47ffb8','#ff5c5c','#60b4ff','#ff9f47','#d47fff','#ff47c8','#47fff5'];
 var counters = JSON.parse(localStorage.getItem('tally_counters') || '[]');
-var bellEnabled = JSON.parse(localStorage.getItem('tally_bell') !== null ? localStorage.getItem('tally_bell') : 'true');
+var raw = localStorage.getItem('tally_bell');
+var bellEnabled = raw === null ? true : raw !== 'false';
 
 function save() {
-  localStorage.setItem('tally_counters', JSON.stringify(counters));
-  localStorage.setItem('tally_meta', JSON.stringify(getMetadata()));
+  try {
+    localStorage.setItem('tally_counters', JSON.stringify(counters));
+    localStorage.setItem('tally_meta', JSON.stringify(getMetadata()));
+  } catch(e) {
+    showToast('⚠ Storage full — photos may not save');
+  }
 }
 
 function getMetadata() {
@@ -472,7 +484,7 @@ function render() {
       card.innerHTML =
         '<div class="card-header">' +
           '<button class="card-reorder" onclick="moveCounter(' + idx + ',-1)" title="Move left">←</button>' +
-          '<input class="card-name" value="' + counter.name.replace(/"/g,'&quot;') + '" ' +
+          '<input class="card-name" value="' + esc(counter.name) + '" ' +
             'onchange="rename(' + idx + ',this.value)" title="Tap to rename">' +
           '<button class="card-reorder" onclick="moveCounter(' + idx + ',1)" title="Move right">→</button>' +
           '<button class="card-delete" onclick="deleteCounter(' + idx + ')">✕</button>' +
@@ -513,7 +525,7 @@ function render() {
         '</div>' +
         '<div class="card-notes">' +
           '<label class="step-label">Notes</label>' +
-          '<textarea class="notes-input" placeholder="Observations..." onchange="setNotes(' + idx + ',this.value)">' + (counter.notes||'') + '</textarea>' +
+          '<textarea class="notes-input" placeholder="Observations..." onchange="setNotes(' + idx + ',this.value)">' + esc(counter.notes||'') + '</textarea>' +
         '</div>' +
         '<div class="card-photos">' +
           '<div class="card-photos-label"><span>📷 Photos (' + (counter.photos||[]).length + '/5)</span></div>' +
@@ -819,37 +831,6 @@ function toggleBell() {
   }
 }
 
-// ─── EXPORT CSV ────────────────────────────────────────────────────────────
-function exportCSV() {
-  if (!counters.length) { showToast('No counters to export'); return; }
-  var now = new Date().toLocaleString('en-US');
-  var names  = counters.map(function(c){return '"'+c.name+'"';}).join(',');
-  var values = counters.map(function(c){return c.value;}).join(',');
-  var fs     = counters.map(function(c){return c.f||1;}).join(',');
-  var extrap = counters.map(function(c){return (c.value*(c.f||1)).toFixed(2);}).join(',');
-  var steps  = counters.map(function(c){return c.step;}).join(',');
-  var total  = counters.reduce(function(a,c){return a+c.value;},0);
-  var m = getMetadata();
-  var csv = 'PLANKTON TALLY\n';
-  csv += 'Cruise Nr: ' + m.cruise + '\n';
-  csv += 'Sample ID: ' + m.sample + '\n';
-  csv += 'Sample Date: ' + m.date + '\n';
-  csv += 'Depth strata: ' + m.depth + '\n';
-  csv += 'Gear: ' + m.gear + '\n';
-  csv += 'Location: ' + getLocation() + '\n';
-  csv += 'Exported: ' + now + '\n\n';
-  csv += ',' + names + '\n';
-  csv += 'Count,' + values + '\n';
-  csv += 'F,' + fs + '\n';
-  csv += 'Count x F,' + extrap + '\n';
-  csv += '\nStep,' + steps + '\n';
-  csv += '\nTotal (count),' + total + '\n';
-  csv += 'Average (count),' + (total/counters.length).toFixed(2) + '\n';
-  csv += 'Maximum (count),' + Math.max.apply(null, counters.map(function(c){return c.value;})) + '\n';
-  csv += 'Minimum (count),' + Math.min.apply(null, counters.map(function(c){return c.value;})) + '\n';
-  iosDownload(new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'}), 'tally_'+dateTag()+'.csv');
-}
-
 // ─── EXPORT EXCEL ──────────────────────────────────────────────────────────
 function exportExcel() {
   if (!counters.length) { showToast('No counters to export'); return; }
@@ -944,12 +925,13 @@ function exportReport() {
   if (!counters.length) { showToast('No counters to export'); return; }
   var now = new Date().toLocaleString('en-US');
   var total = counters.reduce(function(a,c){return a+c.value;},0);
+  var m = getMetadata();
 
   var rows = '';
   // Header row
   rows += '<tr><th></th>';
   for (var i = 0; i < counters.length; i++) {
-    rows += '<th style="background:' + counters[i].color + ';color:#0e0e0e;padding:8px 12px;border-radius:4px;">' + counters[i].name + '</th>';
+    rows += '<th style="background:' + counters[i].color + ';color:#0e0e0e;padding:8px 12px;border-radius:4px;">' + esc(counters[i].name) + '</th>';
   }
   rows += '</tr>';
 
@@ -959,7 +941,7 @@ function exportReport() {
     { label: 'F',         fn: function(c){ return c.f||1; } },
     { label: 'Count × F', fn: function(c){ return (c.value*(c.f||1)).toFixed(2); } },
     { label: 'Step',      fn: function(c){ return c.step; } },
-    { label: 'Notes',     fn: function(c){ return c.notes||''; } },
+    { label: 'Notes',     fn: function(c){ return esc(c.notes||''); } },
   ];
   for (var ri = 0; ri < dataRows.length; ri++) {
     rows += '<tr><td class="rl">' + dataRows[ri].label + '</td>';
@@ -969,7 +951,7 @@ function exportReport() {
     rows += '</tr>';
   }
 
-  // Photo rows — up to 3 per counter
+  // Photo rows
   var maxPhotos = Math.max.apply(null, counters.map(function(c){return (c.photos||[]).length;}).concat([0]));
   for (var ps = 0; ps < maxPhotos; ps++) {
     rows += '<tr><td class="rl">Photo ' + (ps+1) + '</td>';
@@ -1004,12 +986,12 @@ function exportReport() {
     '<h1>PLANKTON TALLY</h1>' +
     '<div class="sub">by G. E. Aguirre</div>' +
     '<div class="meta">' +
-    '<b>Cruise Nr:</b> ' + (getMetadata().cruise||'—') + '<br>' +
-    '<b>Sample ID:</b> ' + (getMetadata().sample||'—') + '<br>' +
-    '<b>Sample Date:</b> ' + (getMetadata().date||'—') + '<br>' +
-    '<b>Depth strata:</b> ' + (getMetadata().depth||'—') + '<br>' +
-    '<b>Gear:</b> ' + (getMetadata().gear||'—') + '<br>' +
-    '<b>Location:</b> ' + getLocation() + '<br>' +
+    '<b>Cruise Nr:</b> ' + esc(m.cruise||'—') + '<br>' +
+    '<b>Sample ID:</b> ' + esc(m.sample||'—') + '<br>' +
+    '<b>Sample Date:</b> ' + esc(m.date||'—') + '<br>' +
+    '<b>Depth strata:</b> ' + esc(m.depth||'—') + '<br>' +
+    '<b>Gear:</b> ' + esc(m.gear||'—') + '<br>' +
+    '<b>Location:</b> ' + esc(getLocation()) + '<br>' +
     '<b>Exported:</b> ' + now +
     '</div>' +
     '<table>' + rows + '</table>' +
@@ -1030,11 +1012,12 @@ function exportPDF() {
   if (!counters.length) { showToast('No counters to export'); return; }
   var now = new Date().toLocaleString('en-US');
   var total = counters.reduce(function(a,c){return a+c.value;},0);
+  var m = getMetadata();
 
   var rows = '';
   rows += '<tr><th></th>';
   for (var i = 0; i < counters.length; i++) {
-    rows += '<th style="background:' + counters[i].color + ';color:#0e0e0e;padding:8px 12px;border-radius:4px;">' + counters[i].name + '</th>';
+    rows += '<th style="background:' + counters[i].color + ';color:#0e0e0e;padding:8px 12px;border-radius:4px;">' + esc(counters[i].name) + '</th>';
   }
   rows += '</tr>';
 
@@ -1043,7 +1026,7 @@ function exportPDF() {
     { label: 'F',         fn: function(c){ return c.f||1; } },
     { label: 'Count × F', fn: function(c){ return (c.value*(c.f||1)).toFixed(2); } },
     { label: 'Step',      fn: function(c){ return c.step; } },
-    { label: 'Notes',     fn: function(c){ return c.notes||''; } },
+    { label: 'Notes',     fn: function(c){ return esc(c.notes||''); } },
   ];
   for (var ri = 0; ri < dataRows.length; ri++) {
     rows += '<tr><td class="rl">' + dataRows[ri].label + '</td>';
@@ -1103,12 +1086,12 @@ function exportPDF() {
     '<h1>PLANKTON TALLY</h1>' +
     '<div class="sub">by G. E. Aguirre</div>' +
     '<div class="meta">' +
-    '<b>Cruise Nr:</b> ' + (getMetadata().cruise||'—') + '<br>' +
-    '<b>Sample ID:</b> ' + (getMetadata().sample||'—') + '<br>' +
-    '<b>Sample Date:</b> ' + (getMetadata().date||'—') + '<br>' +
-    '<b>Depth strata:</b> ' + (getMetadata().depth||'—') + '<br>' +
-    '<b>Gear:</b> ' + (getMetadata().gear||'—') + '<br>' +
-    '<b>Location:</b> ' + getLocation() + '<br>' +
+    '<b>Cruise Nr:</b> ' + esc(m.cruise||'—') + '<br>' +
+    '<b>Sample ID:</b> ' + esc(m.sample||'—') + '<br>' +
+    '<b>Sample Date:</b> ' + esc(m.date||'—') + '<br>' +
+    '<b>Depth strata:</b> ' + esc(m.depth||'—') + '<br>' +
+    '<b>Gear:</b> ' + esc(m.gear||'—') + '<br>' +
+    '<b>Location:</b> ' + esc(getLocation()) + '<br>' +
     '<b>Exported:</b> ' + now +
     '</div>' +
     '<table>' + rows + '</table>' +
